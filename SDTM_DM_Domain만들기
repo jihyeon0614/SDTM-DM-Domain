@@ -1,0 +1,107 @@
+/*raw data import*/
+proc import datafile='/home/u64449328/ClinicalTrial/SCR-002.Clinical.Data.csv' 
+		out=SCR_002;
+run;
+/*subject당 한 개의 row 생성 */
+proc sort data=SCR_002 out=subjects nodupkey;
+	by randid;
+run;
+/*빈 shell 생성 */
+data shell_DM;
+	length STUDYID $15 DOMAIN $2 USUBJID $40 SUBJID $20 RFSTDTC $16 RFENDTC $16 
+		RFXSTDTC $16 RFXENDTC $16 RFICDTC $16 RFPENDTC $16 DTHDTC $16 DTHFL $2 
+		SITEID $7 BRTHDTC $16 AGE 8 AGEU $10 SEX $2 RACE $80 ARMCD $10 ARM $80 
+		ACTARMCD $10 ACTARM $80 ARMNRS $40 ACTARMUD $40 COUNTRY $3;
+	label STUDYID='Study Identifier' DOMAIN='Domain Abbreviation' 
+		USUBJID='Unique Subject Identifier' SUBJID='Subject Identifier for the Study' 
+		RFSTDTC='Subject Reference Start Date/Time' 
+		RFENDTC='Subject Reference End Date/Time' 
+		RFXSTDTC='Date/Time of First Study Treatment' 
+		RFXENDTC='Date/Time of Last Study Treatment' 
+		RFICDTC='Date/Time of Informed Consent' 
+		RFPENDTC='Date/Time of End of Participation' DTHDTC='Date/Time of Death' 
+		DTHFL='Subject Death Flag' SITEID='Study Site Identifier' 
+		BRTHDTC='Date/Time of Birth' AGE='Age' AGEU='Age Units' SEX='Sex' RACE='Race' 
+		ARMCD='Planned Arm Code' ARM='Description of Planned Arm' 
+		ACTARMCD='Actual Arm Code' ACTARM='Description of Actual Arm' 
+		ARMNRS='Reason Arm and/or Actual Arm is Null' 
+		ACTARMUD='Description of Unplanned Actual Arm' COUNTRY='Country';
+	stop;
+run;
+
+proc format;
+	/* 개별 약물 코드 1개에 대한 풀네임 정의*/
+	value $arm_code 'A'='Ranolazine' 'B'='Dofetilide' 'C'='Verapamil' 
+		'D'='Quinidine' 'E'='Placebo';
+run;
+
+data form_DM;
+	set subjects;
+
+	/*기존 식별자 및 고정값 세팅*/
+	STUDYID='NCT01873950';
+	DOMAIN='DM';
+	COUNTRY='USA';
+	SUBJID=strip(put(randid, 8.));
+	SITEID='100';
+	USUBJID=cats(STUDYID, SITEID, SUBJID);
+	AGEU='YEARS';
+	
+	
+	study_year = 2013;
+    
+    /*생년월일(BRTHDTC) 계산: (기준 연도 - 나이), 1월 1일로 통일*/
+    if age ne . then do;
+        birth_year = study_year - age;
+        /* YYYY-MM-DD 형태의 문자열로 조립 */
+        BRTHDTC = cats(put(birth_year, 4.), '-01-01');
+    end;
+    
+    num_start_dt = mdy(5, 1, study_year) + int(ranuni(123) * 15);
+    
+    /* 숫자형 날짜를 yymmdd10. 포맷(YYYY-MM-DD)을 적용해 문자로 변환 */
+    RFSTDTC = put(num_start_dt, yymmdd10.);
+    RFXSTDTC = RFSTDTC; 
+    
+    /* 마지막 투여일(RFXENDTC): 최초 투여일 + 28일(휴약기) + 약간의 변동 난수(0~7일) */
+    num_end_dt = num_start_dt + 28 + int(ranuni(456) * 7);
+    RFENDTC = put(num_end_dt, yymmdd10.);
+    RFXENDTC = RFENDTC;
+	
+	/* ARMCD 처리: 콤마(,)를 하이픈(-)으로 대체 */
+	/* translate(문자열, '바꿀결과문자', '찾을기존문자') */
+	ARMCD=compress(translate(armcd, '-', ','));
+
+	/* ARM: 문자를 쪼개서 풀네임으로 변환 후 조립 */
+	/* 문자열이 길어질 수 있으므로 충분한 길이 할당 */
+	length ARM $80;
+	ARM="";
+
+	/* 루프를 돌기 전 빈 칸으로 초기화 */
+	do i=1 to countw(armcd, '-');
+		code=scan(armcd, i, '-');
+		fullname=put(code, $arm_code.);
+
+		if i=1 then
+			ARM=strip(fullname);
+		else
+			ARM=strip(arm)||'-'||strip(fullname);
+	end;
+	ACTARMCD=ARMCD;
+	ACTARM=ARM;
+run;
+
+data final_DM;
+	/* 쉘을 먼저 읽으면 쉘의 메타데이터(길이, 라벨, 순서)가 최종 데이터에 강제 적용*/
+	set shell_DM form_DM;
+
+	/* 쉘에 정의된 변수만 남기고 원본의 불필요한 변수는 버림 */
+	keep STUDYID DOMAIN USUBJID SUBJID RFSTDTC RFENDTC RFXSTDTC RFXENDTC RFICDTC 
+		RFPENDTC DTHDTC DTHFL SITEID BRTHDTC AGE AGEU SEX RACE ARMCD ARM ACTARMCD 
+		ACTARM ARMNRS ACTARMUD COUNTRY;
+run;
+
+/* 최종 정렬 (규정에 따라 USUBJID 기준으로 정렬) */
+proc sort data=final_DM;
+	by USUBJID;
+run;
