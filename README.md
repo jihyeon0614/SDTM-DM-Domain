@@ -3,9 +3,9 @@
 📌 Project Overview
 본 프로젝트는 건강한 자원자를 대상으로 한 심전도(ECG) 5기 교차 임상시험(Thorough QT Study, TQT)의 통합 분석용 원시 데이터(Raw Integrated Dataset)를 CDISC SDTM 가이드라인에 맞추어 DM(Demographics) 도메인으로 정규화(Normalization) 및 매핑하는 SAS 프로그래밍 포트폴리오입니다.
 
-원시 데이터는 대상자 1명당 측정 시점(TPT)과 반복 측정(Triplicate)에 의해 수십 개의 행을 가지는 1:N 구조로 이루어져 있습니다. 본 프로젝트에서는 이를 SDTM DM 도메인의 제1원칙인 '1인당 1레코드(1 Record per Subject)' 구조로 변환하고, 표준 메타데이터(Length, Label, Type)를 엄격하게 적용하는 데이터 파이프라인을 구축했습니다.
+원시 데이터는 대상자 1명당 측정 시점(TPT)과 반복 측정(Triplicate)에 의해 수십 개의 행을 가지는 1:N 구조로 이루어져 있습니다. 본 프로젝트에서는 이를 SDTM DM 도메인의 제1원칙인 '1인당 1레코드(1 Record per Subject)' 구조로 변환하고 표준 메타데이터(Length, Label, Type)를 엄격하게 적용하는 데이터 파이프라인을 구축했습니다.
 
-Study ID: NCT01873950 (가상화 데이터 적용)
+Study ID: NCT01873950 
 
 Trial Design: 1상(Phase 1), 이중 눈가림(Double-Blind), 무작위 배정(Randomized), 위약 대조(Placebo-Controlled), 5기 교차시험(5-Period Crossover)
 
@@ -22,10 +22,10 @@ Tech Stack: SAS Base, SAS Macro, CDISC SDTM IG 3.4
 
 translate() 함수로 원시 데이터의 구분자(,)를 하이픈(-)으로 전처리하여 ARMCD 생성.
 
-countw(), scan(), put() 함수 및 DO 루프를 결합하여, 개별 투약 코드를 파싱하고 $arm_code. 포맷을 참조해 전체 투약 시퀀스 풀네임(ARM)을 자동 조립.
+countw(), scan(), put() 함수 및 DO 루프를 결합하여 개별 투약 코드를 파싱하고 $arm_code. 포맷을 참조해 전체 투약 시퀀스 풀네임(ARM)을 자동 조립.
 
 3. 임상 프로토콜 기반 가상 날짜 산출 (Mock Date Imputation)
-제공된 원시 데이터는 절대 날짜(Calendar Date)가 부재하고 투약 기준 상대적 시간(TPT)만 존재하는 형태였습니다. SDTM 날짜 함수(--DTC) 처리 역량을 보여주기 위해, 프로토콜 일정에 기반한 가상 날짜 생성 로직을 설계했습니다.
+제공된 원시 데이터는 절대 날짜(Calendar Date)가 부재하고 투약 기준 상대적 시간(TPT)만 존재하는 형태였습니다. 프로토콜 일정에 기반한 가상 날짜 생성 로직을 설계했습니다.
 
 환자의 스크리닝 나이(AGE)를 기반으로 출생 연도(BRTHDTC) 역산.
 
@@ -58,5 +58,5 @@ PROC SORT: 최종 도메인 규정에 따라 USUBJID 기준으로 정렬.
 
 ⚠️ Disclaimer (Troubleshooting & SDTM Rules)
 Mock Data Imputation Note:
-본 프로젝트에 사용된 분석용 통합 데이터셋에는 달력 날짜(Calendar Date)가 부재하여, 원래 원칙대로라면 EX(Exposure) 도메인에서 가져와야 할 DM 도메인의 참조 날짜(RFSTDTC, RFXENDTC 등) 산출이 불가능했습니다.
-본 코드에 포함된 가상 날짜(mdy, ranuni 활용) 생성 로직은 SAS 날짜 함수 핸들링 스킬과 임상 프로토콜(휴약기)에 대한 도메인 지식을 증명하기 위한 **포트폴리오 목적의 가상 연산(Mock Logic)**입니다. 실제 실무 SDTM 구축 시에는 결측치를 역산(Imputation)하지 않고 원본 데이터(eCRF, EX Domain)의 기록을 100% 준수해야 함을 인지하고 있습니다.
+본 프로젝트에 사용된 분석용 통합 데이터셋에는 달력 날짜(Calendar Date)가 부재하여 원래 원칙대로라면 EX(Exposure) 도메인에서 가져와야 할 DM 도메인의 참조 날짜(RFSTDTC, RFXENDTC 등) 산출이 불가능했습니다.
+본 코드에 포함된 가상 날짜(mdy, ranuni 활용) 생성 로직은 포트폴리오 목적의 가상 연산(Mock Logic)입니다.
